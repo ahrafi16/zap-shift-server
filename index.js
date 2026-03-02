@@ -40,6 +40,24 @@ async function run() {
             res.send(parcels);
         })
 
+        // parcels api
+        app.get('/parcels', async (req, res) => {
+            try {
+                const userEmail = req.query.email;
+
+                const query = userEmail ? { user_email: userEmail } : {};
+                const options = {
+                    sort: { creation_timestamp: -1 },
+                };
+
+                const parcels = await parcelCollection.find(query, options).toArray();
+                res.send(parcels);
+            } catch (error) {
+                console.error('Error fetching parcels:', error);
+                res.status(500).send({ message: 'Failed to get parcels' });
+            }
+        });
+
         // post new parcel
         app.post('/parcels', async (req, res) => {
             try {
