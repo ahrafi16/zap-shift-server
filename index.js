@@ -12,9 +12,6 @@ app.use(cors());
 app.use(express.json());
 
 
-
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rinnvkt.mongodb.net/?appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -35,10 +32,10 @@ async function run() {
         const parcelCollection = db.collection('parcels');
 
         // get all parcels
-        app.get('/parcels', async (req, res) => {
-            const parcels = await parcelCollection.find().toArray();
-            res.send(parcels);
-        })
+        // app.get('/parcels', async (req, res) => {
+        //     const parcels = await parcelCollection.find().toArray();
+        //     res.send(parcels);
+        // })
 
         // parcels api
         app.get('/parcels', async (req, res) => {
@@ -57,6 +54,28 @@ async function run() {
                 res.status(500).send({ message: 'Failed to get parcels' });
             }
         });
+
+        // get a specific parcel by ID
+        app.get('/parcels/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).send({ message: "Invalid parcel ID" });
+                }
+
+                const parcel = await parcelCollection.findOne({ _id: new ObjectId(id) });
+
+                if (!parcel) {
+                    return res.status(404).send({ message: "Parcel not found" });
+                }
+
+                res.send(parcel);
+            } catch (error) {
+                console.error("Error fetching parcel:", error);
+                res.status(500).send({ message: "Failed to fetch parcel" });
+            }
+        })
 
         // post new parcel
         app.post('/parcels', async (req, res) => {
