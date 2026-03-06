@@ -5,6 +5,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 dotenv.config();
 
+const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -30,6 +32,7 @@ async function run() {
 
         const db = client.db('parcelDB');
         const parcelCollection = db.collection('parcels');
+        const paymentCollection = db.collection('payments');
 
         // get all parcels
         // app.get('/parcels', async (req, res) => {
@@ -108,6 +111,62 @@ async function run() {
                 res.status(500).send({ message: "Failed to delete parcel" });
             }
         });
+
+
+        // payment api
+        app.get('/create-payment-intent', async (req, res) => {
+            const amountIncents = req.body.amountInCents;
+            try {
+                const paymentIntent = await stripe.paymentIntent.create({
+                    amount: amountIncents,
+                    currency: "bdt",
+                    payment_method_types: ["card"],
+                });
+
+                res.json({ clientSecret: paymentIntent.client_secret })
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // record payment and update parcel status
+        app.post('/payments', async (req, res) => {
+            try {
+                const { parcelId, email, paymentMehtod, transactionId } = req.body;
+
+                const updateResult = await parcelCollection.updateOne({
+                    _id: new ObjectId(parcelId)
+                },
+                    {
+                        $set: {
+                            payment_status: 'paid'
+                        }
+                    });
+                if (updateResult.modifiedCount === 0) {
+                    return res.status(404).send({ message: "Parcel not found or already paid" });
+                }
+
+                const paymentDoc = {
+                    parcelId,
+                    email,
+                    amount,
+                    paymentMehtod,
+                    transactionId,
+                    paid_at_string: new Date().toISOString(),
+                    paid_at: new Date(),
+                };
+
+                const paymentResult = await paymentCollection.insertOne(paymentDoc);
+
+                res.status(201).send({
+                    message: "Payment recorded and parcel marked as paid",
+                    insertedId: paymentResult.insertedId
+                });
+
+            } catch (error) {
+                console.error("Payment processing failed", error)
+            }
+        })
 
 
 
