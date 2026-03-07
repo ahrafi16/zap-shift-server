@@ -31,8 +31,22 @@ async function run() {
         await client.connect();
 
         const db = client.db('parcelDB');
+        const userCollection = db.collection('users');
         const parcelCollection = db.collection('parcels');
         const paymentCollection = db.collection('payments');
+        const trackingCollection = db.collection('trackings');
+
+        app.post('/users', async (req, res) => {
+            const email = req.body.email;
+            const userExists = await userCollection.findOne({ email });
+
+            if (userExists) {
+                return res.status(200).send({ message: 'User already exists', inserted: false });
+            }
+            const user = req.body;
+            const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
 
         // get all parcels
         // app.get('/parcels', async (req, res) => {
@@ -110,6 +124,21 @@ async function run() {
                 console.error("Error deleting parcel:", error);
                 res.status(500).send({ message: "Failed to delete parcel" });
             }
+        });
+
+        // Tracking related API
+        app.post("/tracking", async (req, res) => {
+            const { tracking_id, parcel_id, status, message, updated_by = '' } = req.body;
+            const log = {
+                tracking_id,
+                parcel_id: parcel_id ? new ObjectId(parcel_id) : undefined,
+                status,
+                message,
+                time: new Date(),
+                updated_by,
+            };
+            const result = await trackingCollection.insertOne(log);
+            res.send({ success: true, insertedId: result.insertedId })
         });
 
 
