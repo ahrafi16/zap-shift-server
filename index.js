@@ -21,7 +21,7 @@ app.use(cors());
 app.use(express.json());
 
 
-const serviceAccount = require("./firebase-admin-key.json");
+// const serviceAccount = require("./firebase-admin-key.json");
 
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8')
 const serviceAccount = JSON.parse(decoded);
@@ -38,18 +38,36 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
+// const client = new MongoClient(uri, {
+//     serverApi: {
+//         version: ServerApiVersion.v1,
+//         strict: true,
+//         deprecationErrors: true,
+//     }
+// });
+let cachedClient = null;
+
+async function connectDB() {
+    if (cachedClient) return cachedClient;
+
+    const client = new MongoClient(uri, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            strict: true,
+            deprecationErrors: true,
+        }
+    });
+
+    await client.connect();
+    cachedClient = client;
+    return client;
+}
 
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
+        const client = await connectDB();
 
         const db = client.db('parcelDB');
         const userCollection = db.collection('users');
@@ -381,7 +399,10 @@ async function run() {
         // await client.close();
     }
 }
-run().catch(console.dir);
+// run().catch(console.dir);
+run().catch(err => {
+    console.error("🔥 Run function error:", err);
+});
 
 
 
